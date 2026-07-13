@@ -116,23 +116,53 @@ When connecting Portainer CE to the local cluster, administrative tools frequent
 
 ---
 
-## 5. Step-by-Step Deployment Runbook
+## 5. Tailscale & K3s Overlay Network Troubleshooting
+
+On Arch Linux (EndeavourOS) hosting K3s over Tailscale, cross-node communication between Pods (e.g., backend Flask pods on Laptop master node accessing the PostgreSQL pod on Richard's Desktop worker node) can fail with `timeout expired` errors.
+
+This is caused by two factors:
+1.  **Interface Forwarding Rules:** Arch Linux drops forwarding traffic between different virtual interfaces (`tailscale0` and `flannel.1`) by default.
+2.  **MTU Mismatch Drops:** Tailscale's WireGuard interface has a default MTU of `1280`. Flannel's VXLAN defaults to `1450`. When Flannel encapsulates Pod traffic and routes it through Tailscale, the resulting packets exceed `1280` bytes. Without proper fragmentation support, the packets are silently dropped.
+
+### Automated Remediation Script ([fix-cluster-network.sh](file:///home/richard/full-stack-cluster/fix-cluster-network.sh))
+A production-ready network and firewall repair script has been created to instantly resolve these drops. Execute it on **BOTH** the Master Laptop and Worker Desktop nodes:
+
+```bash
+sudo ./fix-cluster-network.sh
+```
+
+The script automates:
+*   Enabling kernel IP forwarding (`net.ipv4.ip_forward=1`).
+*   Configuring `UFW` (if active) to permit incoming traffic on `flannel.1` and `tailscale0`, and setting `DEFAULT_FORWARD_POLICY` to `ACCEPT`.
+*   Configuring `firewalld` (if active) to trust `flannel.1` and `tailscale0` by adding them to the `trusted` zone.
+*   Applying raw `iptables` rules to allow cross-interface traffic (FORWARD chain) and local inputs (INPUT chain) on both virtual interfaces.
+*   Adjusting the runtime MTU of `flannel.1` to `1230` (1280 - 50 bytes VXLAN overhead) on-the-fly to prevent encapsulation drops.
+
+---
+
+## 6. Step-by-Step Deployment Runbook
 
 Perform the following commands on the laptop (master node) terminal. Because the master config file is owned by root, commands are prefixed with `sudo` and run with the explicit `--kubeconfig` parameter.
 
-### Step 1: Deploy Portainer CE
+### Step 1: Resolve Network Routing & Firewalls
+Run the configuration script on both the Laptop master and Desktop agent nodes:
+```bash
+sudo ./fix-cluster-network.sh
+```
+
+### Step 2: Deploy Portainer CE
 Apply the administration stack to set up namespace, RBAC, and services:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f portainer-k3s.yaml
 ```
 
-### Step 2: Deploy Ticket System Application Stack
+### Step 3: Deploy Ticket System Application Stack
 Apply the full application manifest containing the database, API backend, and web frontend:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f ticket-system-app.yaml
 ```
 
-### Step 3: Verify Scheduling and Distribution
+### Step 4: Verify Scheduling and Distribution
 Ensure that the database is pinned to `richard-desktopp` and that frontend/backend replicas are distributed across nodes:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pods -o wide -n ticket-system
@@ -142,14 +172,14 @@ sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pods -o wide -n ticket-s
 *   `ticket-backend-*` pods are distributed between the master laptop and `richard-desktopp`.
 *   `ticket-frontend-*` pods are distributed between the master laptop and `richard-desktopp`.
 
-### Step 4: Verify Volume Binding & Storage Class
+### Step 5: Verify Volume Binding & Storage Class
 Confirm the local-path-provisioner has dynamically created the persistent volumes:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pvc -A
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pv
 ```
 
-### Step 5: Monitor Startup Logs
+### Step 6: Monitor Startup Logs
 The backend pod will download Flask dependencies and initialize the DB. Track progress:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml logs -n ticket-system -l app=ticket-backend --tail=100 -f
@@ -157,7 +187,7 @@ sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml logs -n ticket-system -l app
 
 ---
 
-## 6. Verification and Troubleshooting Cheat Sheet
+## 7. Verification and Troubleshooting Cheat Sheet
 
 ### Accessing the Web Interfaces
 | Service | External URL | Description |
