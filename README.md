@@ -131,55 +131,74 @@ A production-ready network and firewall repair script has been created to instan
 sudo ./fix-cluster-network.sh
 ```
 
-The script automates:
-*   Enabling kernel IP forwarding (`net.ipv4.ip_forward=1`).
-*   Configuring `UFW` (if active) to permit incoming traffic on `flannel.1` and `tailscale0`, and setting `DEFAULT_FORWARD_POLICY` to `ACCEPT`.
-*   Configuring `firewalld` (if active) to trust `flannel.1` and `tailscale0` by adding them to the `trusted` zone.
-*   Applying raw `iptables` rules to allow cross-interface traffic (FORWARD chain) and local inputs (INPUT chain) on both virtual interfaces.
-*   Adjusting the runtime MTU of `flannel.1` to `1230` (1280 - 50 bytes VXLAN overhead) on-the-fly to prevent encapsulation drops.
+---
+
+## 6. Resolving Persistent DNS & Name Resolution Failures
+
+When K3s restarts, the CoreDNS `ConfigMap` is systematically overwritten and restored to default cluster configurations, discarding manual DNS forwarders. On Arch Linux systems running local stub resolvers (like `systemd-resolved` pointing to `127.0.0.53`), this disrupts name resolution inside pods, causing Flask backend pods to fail commands like `pip install` with a `Temporary failure in name resolution` error.
+
+### The Solution: Static resolv.conf Force-Loading
+To override K3s dynamically inheriting local loopback DNS configs, we force the Kubelet on both nodes to load a static resolv.conf pointing directly to reliable public resolvers.
+
+### Automated DNS Remediation Script ([fix-k3s-dns-persistent.sh](file:///home/richard/full-stack-cluster/fix-k3s-dns-persistent.sh))
+Execute this script with `sudo` on **BOTH** nodes (Master and Worker):
+```bash
+sudo ./fix-k3s-dns-persistent.sh
+```
+
+**What this script performs:**
+1.  **Static Nameserver Provisioning:** Creates `/etc/rancher/k3s/resolv.conf` containing upstream public resolvers:
+    ```conf
+    nameserver 1.1.1.1
+    nameserver 8.8.8.8
+    ```
+2.  **Systemd Service Modification:** Parses `/etc/systemd/system/k3s.service` (Laptop) and `/etc/systemd/system/k3s-agent.service` (Desktop), appending the `--resolv-conf=/etc/rancher/k3s/resolv.conf` argument to the `ExecStart` block.
+3.  **Daemon Reload & Restart:** Instructs systemd to reload its daemon cache and restarts the respective K3s server or agent service.
+4.  **Pod Eviction:** Evicts all active pods across namespaces (`kubectl delete pods --all -A`), forcing CoreDNS and application containers to recreate immediately with the static nameserver configuration.
 
 ---
 
-## 6. Step-by-Step Deployment Runbook
+## 7. Step-by-Step Deployment Runbook
 
 Perform the following commands on the laptop (master node) terminal. Because the master config file is owned by root, commands are prefixed with `sudo` and run with the explicit `--kubeconfig` parameter.
 
 ### Step 1: Resolve Network Routing & Firewalls
-Run the configuration script on both the Laptop master and Desktop agent nodes:
+Run the network configuration script on both the Laptop master and Desktop agent nodes:
 ```bash
 sudo ./fix-cluster-network.sh
 ```
 
-### Step 2: Deploy Portainer CE
+### Step 2: Set Up Persistent DNS Resolution
+Run the DNS enforcement script on both the Laptop master and Desktop agent nodes:
+```bash
+sudo ./fix-k3s-dns-persistent.sh
+```
+
+### Step 3: Deploy Portainer CE
 Apply the administration stack to set up namespace, RBAC, and services:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f portainer-k3s.yaml
 ```
 
-### Step 3: Deploy Ticket System Application Stack
+### Step 4: Deploy Ticket System Application Stack
 Apply the full application manifest containing the database, API backend, and web frontend:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f ticket-system-app.yaml
 ```
 
-### Step 4: Verify Scheduling and Distribution
+### Step 5: Verify Scheduling and Distribution
 Ensure that the database is pinned to `richard-desktopp` and that frontend/backend replicas are distributed across nodes:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pods -o wide -n ticket-system
 ```
-*Expected Output:*
-*   `ticket-db-*` is running on `richard-desktopp`.
-*   `ticket-backend-*` pods are distributed between the master laptop and `richard-desktopp`.
-*   `ticket-frontend-*` pods are distributed between the master laptop and `richard-desktopp`.
 
-### Step 5: Verify Volume Binding & Storage Class
+### Step 6: Verify Volume Binding & Storage Class
 Confirm the local-path-provisioner has dynamically created the persistent volumes:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pvc -A
-sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pv
 ```
 
-### Step 6: Monitor Startup Logs
+### Step 7: Monitor Startup Logs
 The backend pod will download Flask dependencies and initialize the DB. Track progress:
 ```bash
 sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml logs -n ticket-system -l app=ticket-backend --tail=100 -f
@@ -187,7 +206,7 @@ sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml logs -n ticket-system -l app
 
 ---
 
-## 7. Verification and Troubleshooting Cheat Sheet
+## 8. Verification and Troubleshooting Cheat Sheet
 
 ### Accessing the Web Interfaces
 | Service | External URL | Description |
@@ -204,13 +223,11 @@ sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml logs -n ticket-system -l app
     sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml describe pod <pod-name> -n ticket-system
     ```
 
-*   **Inspect PVC Pending State:**
-    If the database PVC is stuck in `Pending`, verify why the storage class has not bound the volume:
+*   **Verify Active Nameservers in CoreDNS:**
+    Describe the CoreDNS pods to confirm they have loaded the static resolv.conf:
     ```bash
-    sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml describe pvc ticket-db-pvc -n ticket-system
+    sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml describe pod -n kube-system -l k8s-app=kube-dns
     ```
-    > [!NOTE]
-    > Since K3s uses `WaitForFirstConsumer`, the PVC will remain `Pending` until the `ticket-db` pod is scheduled.
 
 *   **Test Internal Database Connection:**
     Check database network connectivity directly from a running backend pod:
