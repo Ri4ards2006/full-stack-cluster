@@ -17,9 +17,9 @@ gantt
     section Phase 4: Resilient Storage
     Longhorn CSI & CloudNativePG Operator    :done, p4, after p3, 45d
     section Phase 5: HA Control Plane & IaC
-    Embedded etcd 3-Node Quorum & Ansible    :active, p5, after p4, 60d
+    Embedded etcd 3-Node Quorum & Ansible    :done, p5, after p4, 60d
     section Phase 6: Telemetry & Observability
-    LGTM Stack (Prometheus, Grafana, Loki)   :p6, after p5, 45d
+    LGTM Stack (Prometheus, Grafana, Loki)   :active, p6, after p5, 45d
 ```
 
 ---
@@ -51,8 +51,21 @@ full-stack-cluster/
 │       └── resolv.conf
 ├── docs/
 │   ├── gitops-workflow.md            # ArgoCD operations, disaster recovery & App-of-Apps
+│   ├── iac-and-provisioning.md       # Ansible bare-metal & OpenTofu witness runbook
 │   ├── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnel runbook
 │   └── storage-and-ha.md             # Longhorn CSI & CloudNativePG HA guide
+├── infrastructure/
+│   ├── ansible/                      # Idempotent bare-metal automation
+│   │   ├── group_vars/
+│   │   ├── inventory/
+│   │   ├── playbooks/
+│   │   └── roles/
+│   └── opentofu/                     # OpenTofu Cloud-Witness IaC
+│       ├── cloud-init.yaml
+│       ├── main.tf
+│       ├── outputs.tf
+│       ├── terraform.tfvars.example
+│       └── variables.tf
 ├── manifests/
 │   ├── base/                         # Base K8s manifests (Deployments, Services, RBAC)
 │   │   ├── argocd/                   # Declarative ArgoCD base installation & ingress
@@ -133,19 +146,20 @@ full-stack-cluster/
 ---
 
 ### Phase 5: High-Availability Control Plane & Bare-Metal IaC
-* **Status:** Next Up / In Planning
+* **Status:** Completed
 * **Key Deliverables:**
-  1. [ ] **HA Control Plane (Embedded etcd Quorum):**
-     * Expand cluster from single master to **3-node etcd quorum** ($2N+1$ consensus).
-     * Integrate an external lightweight Cloud VPS (e.g. Hetzner Cloud for ~3€/month) as the 3rd Control Plane Node / etcd-Witness in the Tailscale mesh.
-  2. [ ] **Infrastructure-as-Code (Ansible & OpenTofu):**
-     * Write Ansible playbooks for zero-touch bare-metal provisioning of Arch Linux / EndeavourOS nodes.
-     * Manage Cloudflare DNS, Tunnels, and Cloud VPS resources via OpenTofu / Terraform.
+  1. [x] **HA Control Plane (Embedded etcd Quorum):**
+     * Expanded cluster design to **3-node etcd quorum** ($2N+1$ consensus).
+     * Provisioned lightweight Cloud VPS (`cx22`) as the 3rd Control Plane Node / etcd-Witness in the Tailscale mesh.
+  2. [x] **Infrastructure-as-Code (Ansible & OpenTofu):**
+     * Modular Ansible playbooks in `infrastructure/ansible/` for zero-touch bare-metal provisioning of Arch Linux / EndeavourOS nodes.
+     * OpenTofu configuration in `infrastructure/opentofu/` for cloud witness node management.
+     * Comprehensive operations guide in `docs/iac-and-provisioning.md`.
 
 ---
 
 ### Phase 6: Full-Stack Observability & Telemetry (LGTM Stack)
-* **Status:** Planned
+* **Status:** Next Up / In Planning
 * **Key Deliverables:**
   1. [ ] **Metrics:** Deploy `kube-prometheus-stack` (Prometheus Operator, Alertmanager, Grafana).
   2. [ ] **Dashboards:** Provision pre-configured dashboards for Node Exporter, K3s API server metrics, and Tailscale tunnel latency.
