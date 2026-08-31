@@ -5,3 +5,4 @@ metadata:
   labels:
     app.kubernetes.io/name: monitoring
     app.kubernetes.io/part-of: full-stack-cluster
+

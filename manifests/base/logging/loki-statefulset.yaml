@@ -128,3 +128,4 @@ spec:
       name: http
   selector:
     app: loki
+

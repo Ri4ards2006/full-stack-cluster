@@ -112,3 +112,4 @@ flowchart TD
     
     QUERY_LOKI --> FIX_APP[Debug backend / database connection pool & release bugfix via GitOps]
 ```
+

@@ -10,3 +10,4 @@ resources:
   - grafana-datasources.yaml
   - dashboards-configmap.yaml
   - ingress.yaml
+
