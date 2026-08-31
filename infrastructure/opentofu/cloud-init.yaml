@@ -1,0 +1,65 @@
+#cloud-config
+# ==============================================================================
+# Cloud-Init for Automated Cloud Witness Node Bootstrapping (Debian 12)
+# ==============================================================================
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - iptables
+  - ca-certificates
+
+write_files:
+  - path: /etc/modules-load.d/k3s.conf
+    content: |
+      overlay
+      br_netfilter
+    permissions: '0644'
+
+  - path: /etc/sysctl.d/99-k3s.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-iptables = 1
+    permissions: '0644'
+
+  - path: /etc/rancher/k3s/resolv.conf
+    content: |
+      nameserver 1.1.1.1
+      nameserver 8.8.8.8
+    permissions: '0644'
+
+runcmd:
+  # 1. Apply kernel parameters
+  - modprobe overlay
+  - modprobe br_netfilter
+  - sysctl --system
+
+  # 2. Install and authenticate Tailscale
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - systemctl enable --now tailscaled
+  - tailscale up --authkey="${tailscale_auth_key}" --hostname="cloud-witness" --accept-routes
+
+  # 3. Fetch node Tailscale IP
+  - TS_IP=$(tailscale ip -4)
+
+  # 4. Create declarative K3s server witness config (Joining embedded etcd)
+  - mkdir -p /etc/rancher/k3s
+  - |
+    cat <<EOF > /etc/rancher/k3s/config.yaml
+    server: "https://${k3s_master_ip}:6443"
+    token: "${k3s_cluster_token}"
+    flannel-iface: "tailscale0"
+    flannel-backend: "vxlan"
+    flannel-conf: '{"Network":"10.42.0.0/16","Backend":{"Type":"vxlan","Port":8472,"MTU":1230}}'
+    resolv-conf: "/etc/rancher/k3s/resolv.conf"
+    node-ip: "$TS_IP"
+    disable:
+      - traefik
+      - servicelb
+      - local-storage
+    EOF
+
+  # 5. Install K3s server in etcd quorum join mode
+  - curl -sfL https://get.k3s.io | sh -s - server
