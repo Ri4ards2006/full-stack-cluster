@@ -1,0 +1,16 @@
+# ==============================================================================
+# ArgoCD Command Parameters ConfigMap
+# Enables HTTP (insecure) mode on the ArgoCD API server to allow clean TLS
+# termination at the Traefik / Ingress Controller edge without double SSL handshake errors.
+# ==============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  server.insecure: "true"
