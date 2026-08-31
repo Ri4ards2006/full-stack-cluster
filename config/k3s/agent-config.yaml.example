@@ -13,3 +13,4 @@ node-ip: 100.a.b.c                     # Replace with Desktop Worker Tailscale I
 
 # Bypass systemd-resolved 127.0.0.53 stub loop
 resolv-conf: /etc/rancher/k3s/resolv.conf
+

@@ -33,3 +33,4 @@ This directory contains declarative configuration templates replacing the legacy
    ```bash
    sudo systemctl restart k3s-agent
    ```
+
