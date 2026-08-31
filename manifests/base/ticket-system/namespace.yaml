@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ticket-system
+  labels:
+    app.kubernetes.io/name: ticket-system
+    app.kubernetes.io/part-of: full-stack-cluster

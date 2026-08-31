@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-backend
+  namespace: ticket-system
+  labels:
+    app: ticket-backend
+    app.kubernetes.io/name: ticket-backend
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ticket-backend
+  template:
+    metadata:
+      labels:
+        app: ticket-backend
+        app.kubernetes.io/name: ticket-backend
+        app.kubernetes.io/component: api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+      - name: flask-api
+        image: ghcr.io/ri4ards2006/ticket-backend:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          value: "ticket-db"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: ticket-db-secrets
+              key: POSTGRES_DB
+              optional: true
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: ticket-db-secrets
+              key: POSTGRES_USER
+              optional: true
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ticket-db-secrets
+              key: POSTGRES_PASSWORD
+              optional: true
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 15
+          timeoutSeconds: 3
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 5
+          timeoutSeconds: 3
+          periodSeconds: 10
