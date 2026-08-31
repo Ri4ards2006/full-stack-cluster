@@ -1,0 +1,73 @@
+# ==============================================================================
+# Scoped Least-Privilege RBAC for Portainer CE (De-escalated from cluster-admin)
+# ==============================================================================
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: portainer-sa
+  namespace: portainer
+  labels:
+    app.kubernetes.io/name: portainer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: portainer-viewer-role
+  labels:
+    app.kubernetes.io/name: portainer
+rules:
+  # Cluster-wide inspection of nodes, metrics and namespaces
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "persistentvolumes", "services", "endpoints", "pods", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: portainer-viewer-crb
+  labels:
+    app.kubernetes.io/name: portainer
+subjects:
+  - kind: ServiceAccount
+    name: portainer-sa
+    namespace: portainer
+roleRef:
+  kind: ClusterRole
+  name: portainer-viewer-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Scoped full admin rights strictly within the 'portainer' and 'ticket-system' namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: portainer-workload-manager
+  namespace: portainer
+rules:
+  - apiGroups: ["*", "apps", "extensions"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: portainer-workload-manager-rb
+  namespace: portainer
+subjects:
+  - kind: ServiceAccount
+    name: portainer-sa
+    namespace: portainer
+roleRef:
+  kind: Role
+  name: portainer-workload-manager
+  apiGroup: rbac.authorization.k8s.io
+

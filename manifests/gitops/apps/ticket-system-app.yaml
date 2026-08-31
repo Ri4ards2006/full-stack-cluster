@@ -1,0 +1,36 @@
+# ==============================================================================
+# ArgoCD Child Application: Incident Ticket System (Homelab Overlay)
+# ==============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ticket-system
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: ticket-system
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ri4ards2006/full-stack-cluster.git
+    targetRevision: main
+    path: manifests/overlays/homelab
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ticket-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 2m
+

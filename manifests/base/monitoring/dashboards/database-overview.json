@@ -1,0 +1,67 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "CloudNativePG PostgreSQL Metrics & Replication",
+      "type": "row"
+    },
+    {
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 },
+      "id": 2,
+      "title": "Active PostgreSQL Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "cnpg_backends_total{datname=\"ticket_db\"}",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "fieldConfig": { "defaults": { "unit": "decbytes" } },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 },
+      "id": 3,
+      "title": "Streaming Replication Lag",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "cnpg_replication_lag_bytes",
+          "legendFormat": "Replication Lag ({{application_name}})"
+        }
+      ]
+    },
+    {
+      "fieldConfig": { "defaults": { "unit": "tps" } },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 },
+      "id": 4,
+      "title": "Transactions Per Second (Commit / Rollback)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(cnpg_xact_commit_total{datname=\"ticket_db\"}[1m])",
+          "legendFormat": "Commits"
+        },
+        {
+          "expr": "rate(cnpg_xact_rollback_total{datname=\"ticket_db\"}[1m])",
+          "legendFormat": "Rollbacks"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["cnpg", "postgresql", "database"],
+  "title": "PostgreSQL HA Cluster Overview",
+  "uid": "database-overview"
+}
+

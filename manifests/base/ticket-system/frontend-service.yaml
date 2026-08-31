@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-frontend
+  namespace: ticket-system
+  labels:
+    app: ticket-frontend
+    app.kubernetes.io/name: ticket-frontend
+    app.kubernetes.io/component: ui
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: ticket-frontend
+

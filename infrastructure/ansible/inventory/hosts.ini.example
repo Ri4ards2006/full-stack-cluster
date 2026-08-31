@@ -1,0 +1,19 @@
+# ==============================================================================
+# Ansible Inventory for Multi-Node Hybrid K3s Cluster
+# Copy this file to 'hosts.ini' and update connection details.
+# ==============================================================================
+
+[k3s_masters]
+thinkpad-master ansible_host=192.168.178.50 ansible_user=richard ansible_become=true
+
+[k3s_workers]
+desktop-worker ansible_host=192.168.178.60 ansible_user=richard ansible_become=true
+
+[k3s_witness]
+cloud-witness ansible_host=100.64.0.5 ansible_user=root
+
+[k3s_cluster:children]
+k3s_masters
+k3s_workers
+k3s_witness
+

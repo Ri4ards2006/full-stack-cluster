@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portainer
+  namespace: portainer
+  labels:
+    app: portainer
+    app.kubernetes.io/name: portainer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: portainer
+  template:
+    metadata:
+      labels:
+        app: portainer
+        app.kubernetes.io/name: portainer
+    spec:
+      serviceAccountName: portainer-sa
+      containers:
+      - name: portainer
+        image: portainer/portainer-ce:2.21.4-alpine
+        imagePullPolicy: IfNotPresent
+        args:
+          - "--tunnel-port=30776"
+        ports:
+        - containerPort: 9443
+          name: https
+          protocol: TCP
+        - containerPort: 9000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+        volumeMounts:
+        - name: portainer-data
+          mountPath: /data
+        livenessProbe:
+          tcpSocket:
+            port: 9443
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 3
+        readinessProbe:
+          tcpSocket:
+            port: 9443
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+      volumes:
+      - name: portainer-data
+        persistentVolumeClaim:
+          claimName: portainer-pvc
+

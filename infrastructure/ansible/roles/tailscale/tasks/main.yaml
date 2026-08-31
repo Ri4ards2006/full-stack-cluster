@@ -1,0 +1,39 @@
+# ==============================================================================
+# Role: tailscale - Tasks
+# Installs Tailscale WireGuard agent and authenticates node to mesh.
+# ==============================================================================
+
+- name: Install Tailscale on Arch Linux / EndeavourOS
+  community.general.pacman:
+    name: tailscale
+    state: present
+  when: ansible_os_family == "Archlinux"
+
+- name: Install Tailscale on Debian / Ubuntu (Witness Nodes)
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Enable and start tailscaled service
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+
+- name: Check Tailscale connection status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+
+- name: Authenticate and join Tailscale WireGuard Mesh
+  ansible.builtin.command: >
+    tailscale up
+    --authkey={{ tailscale_auth_key }}
+    --accept-routes
+    --hostname={{ inventory_hostname }}
+    --reset
+  when: tailscale_status_raw.rc != 0 or (tailscale_status_raw.stdout | from_json).BackendState != "Running"
+

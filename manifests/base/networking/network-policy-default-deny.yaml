@@ -1,0 +1,52 @@
+# ==============================================================================
+# Namespace Default-Deny Ingress Policy (Baseline Zero-Trust Hardening)
+# ==============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: ticket-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Explicitly allow Ingress Controller / Nginx Proxy traffic to Frontend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-frontend
+  namespace: ticket-system
+spec:
+  podSelector:
+    matchLabels:
+      app: ticket-frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+# Explicitly allow Frontend to Backend API communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-backend
+  namespace: ticket-system
+spec:
+  podSelector:
+    matchLabels:
+      app: ticket-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ticket-frontend
+      ports:
+        - protocol: TCP
+          port: 5000
+

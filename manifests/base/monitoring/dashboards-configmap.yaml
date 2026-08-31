@@ -1,0 +1,106 @@
+# ==============================================================================
+# Grafana Dashboard Provisioning Provider Configuration
+# Automatically imports all dashboards located in /etc/grafana/dashboards
+# ==============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'Default Homelab Dashboards'
+        orgId: 1
+        folder: 'Homelab Platform'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /etc/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-preconfigured-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  cluster-overview.json: |
+    {
+      "title": "Cluster & Network Overview",
+      "uid": "cluster-overview",
+      "tags": ["k3s", "hardware", "tailscale"],
+      "schemaVersion": 39,
+      "refresh": "10s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Node CPU Utilization",
+          "type": "gauge",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "targets": [{ "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)" }]
+        },
+        {
+          "id": 2,
+          "title": "Node Memory Utilization",
+          "type": "gauge",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "targets": [{ "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))" }]
+        }
+      ]
+    }
+  database-overview.json: |
+    {
+      "title": "PostgreSQL HA Cluster Overview",
+      "uid": "database-overview",
+      "tags": ["cnpg", "postgresql"],
+      "schemaVersion": 39,
+      "refresh": "10s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Active PostgreSQL Connections",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "targets": [{ "expr": "cnpg_backends_total{datname=\"ticket_db\"}" }]
+        },
+        {
+          "id": 2,
+          "title": "Replication Lag",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "targets": [{ "expr": "cnpg_replication_lag_bytes" }]
+        }
+      ]
+    }
+  app-performance.json: |
+    {
+      "title": "Application Performance & Latency",
+      "uid": "app-performance",
+      "tags": ["application", "flask"],
+      "schemaVersion": 39,
+      "refresh": "10s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Flask Backend Request Rate",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "targets": [{ "expr": "sum(rate(flask_http_request_total[1m]))" }]
+        },
+        {
+          "id": 2,
+          "title": "p95 Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))" }]
+        }
+      ]
+    }
+

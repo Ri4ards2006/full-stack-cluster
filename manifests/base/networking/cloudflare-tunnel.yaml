@@ -1,0 +1,75 @@
+# ==============================================================================
+# Cloudflare Zero-Trust Ingress Tunnel Daemon (cloudflared)
+# Exposes cluster services to external users without opening home router ports.
+# ==============================================================================
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflare-tunnel-credentials
+  namespace: networking
+  labels:
+    app.kubernetes.io/name: cloudflared
+type: Opaque
+stringData:
+  # Base64 or plain token from Cloudflare Zero Trust Dashboard
+  # Generated via: Zero Trust Dashboard -> Networks -> Tunnels -> Create Tunnel
+  TUNNEL_TOKEN: "CHANGE_ME_TO_YOUR_CLOUDFLARE_TUNNEL_TOKEN"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: networking
+  labels:
+    app: cloudflared
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/component: ingress-tunnel
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+        app.kubernetes.io/name: cloudflared
+        app.kubernetes.io/component: ingress-tunnel
+    spec:
+      containers:
+      - name: cloudflared
+        image: cloudflare/cloudflared:2024.8.3
+        imagePullPolicy: IfNotPresent
+        args:
+          - tunnel
+          - --no-autoupdate
+          - run
+        env:
+          - name: TUNNEL_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: cloudflare-tunnel-credentials
+                key: TUNNEL_TOKEN
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: 2000
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 2000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+

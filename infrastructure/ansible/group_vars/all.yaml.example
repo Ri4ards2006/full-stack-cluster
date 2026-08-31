@@ -1,0 +1,25 @@
+# ==============================================================================
+# Global Variables Configuration for Cluster Provisioning
+# Copy this file to 'all.yaml' and encrypt sensitive fields with ansible-vault.
+# ==============================================================================
+
+# K3s Cluster Version & Channel
+k3s_version: "v1.30.3+k3s1"
+
+# Network Mesh & Tailscale Parameters
+tailscale_auth_key: "tskey-auth-kxxxxxxxxxxxxxxxxxxxxxxx"
+tailscale_interface: "tailscale0"
+tailscale_mtu: 1280
+
+# K3s Network Topology
+flannel_mtu: 1230  # 1280 (Tailscale MTU) - 50 (VXLAN Overhead)
+cluster_cidr: "10.42.0.0/16"
+service_cidr: "10.43.0.0/16"
+cluster_dns: "10.43.0.10"
+
+# Cluster Token for Node Joining (Generate via: openssl rand -hex 32)
+k3s_cluster_token: "CHANGE_ME_TO_A_SECURE_RANDOM_TOKEN"
+
+# Master API Endpoint (Tailscale Mesh IP of Primary Control Plane Node)
+k3s_master_ip: "100.x.y.z"
+

@@ -1,0 +1,36 @@
+# ==============================================================================
+# ArgoCD Child Application: Prometheus & Grafana Monitoring Stack
+# ==============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: monitoring-stack
+    app.kubernetes.io/component: observability
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ri4ards2006/full-stack-cluster.git
+    targetRevision: main
+    path: manifests/base/monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+

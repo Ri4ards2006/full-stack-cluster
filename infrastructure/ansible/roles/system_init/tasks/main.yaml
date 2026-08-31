@@ -1,0 +1,48 @@
+# ==============================================================================
+# Role: system_init - Tasks
+# Configures kernel modules, packet forwarding, and persistent DNS bypass.
+# ==============================================================================
+
+- name: Load required kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: Persist kernel modules across reboots
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: '0644'
+
+- name: Apply sysctl networking parameters for Kubernetes
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-k3s.conf
+  loop:
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+    - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+
+- name: Ensure Rancher configuration directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: '0755'
+
+- name: Deploy static resolv.conf (Bypasses systemd-resolved 127.0.0.53 stub loop)
+  ansible.builtin.copy:
+    dest: /etc/rancher/k3s/resolv.conf
+    content: |
+      nameserver 1.1.1.1
+      nameserver 8.8.8.8
+      nameserver 1.0.0.1
+    mode: '0644'
+

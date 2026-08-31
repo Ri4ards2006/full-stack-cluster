@@ -1,0 +1,40 @@
+# ==============================================================================
+# Zero-Trust Database Network Policy (Egress & Ingress Isolation for CNPG)
+# ==============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-to-db
+  namespace: ticket-system
+  labels:
+    app.kubernetes.io/component: database
+spec:
+  podSelector:
+    matchExpressions:
+      - key: cnpg.io/cluster
+        operator: In
+        values:
+          - ticket-db
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow incoming connections to PostgreSQL strictly from ticket-backend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ticket-backend
+      ports:
+        - protocol: TCP
+          port: 5432
+          # Also allow Postgres replication port for CNPG intra-cluster streaming
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: cnpg.io/cluster
+                operator: In
+                values:
+                  - ticket-db
+      ports:
+        - protocol: TCP
+          port: 5432

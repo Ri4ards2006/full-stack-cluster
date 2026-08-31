@@ -1,0 +1,35 @@
+# ==============================================================================
+# ArgoCD Child Application: Ingress Routing, TLS & NetworkPolicies
+# ==============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: networking-and-ingress
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: networking-and-ingress
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ri4ards2006/full-stack-cluster.git
+    targetRevision: main
+    path: manifests/base/networking
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 2m
+
