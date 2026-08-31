@@ -15,9 +15,9 @@ gantt
     section Phase 3: GitOps Engine
     ArgoCD, Kustomize & Multi-Environment   :done, p3, after p2, 45d
     section Phase 4: Resilient Storage
-    Longhorn CSI & CloudNativePG Operator    :active, p4, after p3, 45d
+    Longhorn CSI & CloudNativePG Operator    :done, p4, after p3, 45d
     section Phase 5: HA Control Plane & IaC
-    Embedded etcd 3-Node Quorum & Ansible    :p5, after p4, 60d
+    Embedded etcd 3-Node Quorum & Ansible    :active, p5, after p4, 60d
     section Phase 6: Telemetry & Observability
     LGTM Stack (Prometheus, Grafana, Loki)   :p6, after p5, 45d
 ```
@@ -51,20 +51,24 @@ full-stack-cluster/
 │       └── resolv.conf
 ├── docs/
 │   ├── gitops-workflow.md            # ArgoCD operations, disaster recovery & App-of-Apps
-│   └── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnel runbook
+│   ├── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnel runbook
+│   └── storage-and-ha.md             # Longhorn CSI & CloudNativePG HA guide
 ├── manifests/
 │   ├── base/                         # Base K8s manifests (Deployments, Services, RBAC)
 │   │   ├── argocd/                   # Declarative ArgoCD base installation & ingress
+│   │   ├── database/                 # CloudNativePG Operator
 │   │   ├── networking/               # Ingress, cert-manager, NetworkPolicies, Cloudflare
 │   │   ├── portainer/                # Portainer CE with scoped least-privilege RBAC
-│   │   └── ticket-system/            # Backend, Frontend, PostgreSQL DB
+│   │   ├── storage/                  # Longhorn Distributed Block Storage CSI
+│   │   └── ticket-system/            # Backend, Frontend
 │   ├── gitops/                       # ArgoCD App-of-Apps definitions
-│   │   ├── apps/                     # Child applications (ticket-system, portainer, networking)
+│   │   ├── apps/                     # Child applications (ticket-system, portainer, networking, storage, database)
 │   │   └── root-app.yaml             # Master Root ArgoCD Application
 │   ├── overlays/
-│   │   └── homelab/                  # Homelab hardware patches (NodeAffinity, Replicas)
+│   │   └── homelab/                  # Homelab hardware patches (CNPG Cluster, Replicas)
 │   │       ├── kustomization.yaml
-│   │       └── patches/
+│   │       ├── patches/
+│   │       └── pg-cluster.yaml
 │   ├── sealed-secrets-template.yaml  # Bitnami SealedSecrets CRD template
 │   └── secrets.example.yaml          # Declarative secrets template
 ├── ARCHITECTURE.md                   # Complete architectural specification
@@ -114,20 +118,22 @@ full-stack-cluster/
 ---
 
 ### Phase 4: Distributed Storage & High-Availability Data Layer
-* **Status:** Next Up / In Planning
+* **Status:** Completed
 * **Key Deliverables:**
-  1. [ ] **Distributed Block Storage (Longhorn CSI):**
-     * Deploy Longhorn across all cluster nodes.
-     * Configure 2-way or 3-way synchronous block replication across physical NVMe disks.
-     * Remove hardcoded `nodeAffinity` on `ticket-db`, enabling cross-node volume failover.
-  2. [ ] **CloudNativePG (CNPG) Operator:**
-     * Replace standalone PostgreSQL deployment with CNPG operator.
-     * Configure automated WAL streaming and scheduled daily backups to S3 / MinIO object storage.
+  1. [x] **Distributed Block Storage (Longhorn CSI):**
+     * Base manifests in `manifests/base/storage/` with Web UI Ingress (`longhorn.homelab.local`).
+     * ArgoCD child application in `manifests/gitops/apps/storage-app.yaml`.
+     * Multi-node synchronous block replication across physical NVMe disks.
+  2. [x] **CloudNativePG (CNPG) Operator & Cluster:**
+     * Operator base manifests in `manifests/base/database/` and ArgoCD app `manifests/gitops/apps/database-operator-app.yaml`.
+     * High-availability 2-instance PostgreSQL cluster (`manifests/overlays/homelab/pg-cluster.yaml`) on Longhorn storage.
+     * Hardened network policy (`allow-backend-to-db`) for CNPG streaming replication.
+     * **Elimination of Node-Pinning:** Removed `db-node-affinity.yaml`, enabling instant cross-node database failover.
 
 ---
 
 ### Phase 5: High-Availability Control Plane & Bare-Metal IaC
-* **Status:** Planned
+* **Status:** Next Up / In Planning
 * **Key Deliverables:**
   1. [ ] **HA Control Plane (Embedded etcd Quorum):**
      * Expand cluster from single master to **3-node etcd quorum** ($2N+1$ consensus).
