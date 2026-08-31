@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments & Virtual Environments
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+ENV/
+
+# Sensitive Kubernetes Secrets & Keys
+*.secret.yaml
+secrets.yaml
+!secrets.example.yaml
+!sealed-secrets-template.yaml
+*.key
+*.pem
+*.crt
+kubeconfig
+*.kubeconfig
+
+# Operating System & IDE Artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Terraform / OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+!*.tfvars.example
