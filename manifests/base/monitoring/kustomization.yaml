@@ -8,4 +8,5 @@ resources:
   - prometheus.yaml
   - grafana.yaml
   - grafana-datasources.yaml
+  - dashboards-configmap.yaml
   - ingress.yaml

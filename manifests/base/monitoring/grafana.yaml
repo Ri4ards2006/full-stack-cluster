@@ -1,5 +1,5 @@
 # ==============================================================================
-# Grafana Visualization Engine
+# Grafana Visualization Engine (With Pre-Provisioned Homelab Dashboards)
 # ==============================================================================
 
 apiVersion: v1
@@ -60,6 +60,10 @@ spec:
           mountPath: /var/lib/grafana
         - name: grafana-datasources-vol
           mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboard-provider-vol
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: grafana-dashboards-vol
+          mountPath: /etc/grafana/dashboards
         livenessProbe:
           httpGet:
             path: /api/health
@@ -79,6 +83,12 @@ spec:
       - name: grafana-datasources-vol
         configMap:
           name: grafana-datasources
+      - name: grafana-dashboard-provider-vol
+        configMap:
+          name: grafana-dashboard-provider
+      - name: grafana-dashboards-vol
+        configMap:
+          name: grafana-preconfigured-dashboards
 ---
 apiVersion: v1
 kind: Service
