@@ -1,0 +1,35 @@
+# ==============================================================================
+# ArgoCD Child Application: Longhorn Distributed Block Storage CSI
+# ==============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn-storage
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: longhorn-storage
+    app.kubernetes.io/component: csi-driver
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ri4ards2006/full-stack-cluster.git
+    targetRevision: main
+    path: manifests/base/storage
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
