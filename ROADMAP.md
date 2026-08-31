@@ -13,9 +13,9 @@ gantt
     section Phase 2: Ingress & Network
     Traefik Ingress, cert-manager & Zero-Trust :done, p2, after p1, 30d
     section Phase 3: GitOps Engine
-    ArgoCD, Kustomize & Multi-Environment   :active, p3, after p2, 45d
+    ArgoCD, Kustomize & Multi-Environment   :done, p3, after p2, 45d
     section Phase 4: Resilient Storage
-    Longhorn CSI & CloudNativePG Operator    :p4, after p3, 45d
+    Longhorn CSI & CloudNativePG Operator    :active, p4, after p3, 45d
     section Phase 5: HA Control Plane & IaC
     Embedded etcd 3-Node Quorum & Ansible    :p5, after p4, 60d
     section Phase 6: Telemetry & Observability
@@ -50,12 +50,17 @@ full-stack-cluster/
 │       ├── config.yaml.example
 │       └── resolv.conf
 ├── docs/
+│   ├── gitops-workflow.md            # ArgoCD operations, disaster recovery & App-of-Apps
 │   └── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnel runbook
 ├── manifests/
 │   ├── base/                         # Base K8s manifests (Deployments, Services, RBAC)
+│   │   ├── argocd/                   # Declarative ArgoCD base installation & ingress
 │   │   ├── networking/               # Ingress, cert-manager, NetworkPolicies, Cloudflare
 │   │   ├── portainer/                # Portainer CE with scoped least-privilege RBAC
 │   │   └── ticket-system/            # Backend, Frontend, PostgreSQL DB
+│   ├── gitops/                       # ArgoCD App-of-Apps definitions
+│   │   ├── apps/                     # Child applications (ticket-system, portainer, networking)
+│   │   └── root-app.yaml             # Master Root ArgoCD Application
 │   ├── overlays/
 │   │   └── homelab/                  # Homelab hardware patches (NodeAffinity, Replicas)
 │   │       ├── kustomization.yaml
@@ -99,16 +104,17 @@ full-stack-cluster/
 ---
 
 ### Phase 3: GitOps & Declarative Cluster Management
-* **Status:** Next Up / In Planning
+* **Status:** Completed
 * **Key Deliverables:**
-  1. [ ] **GitOps Engine:** Deploy **ArgoCD** or **Flux v2** inside the `gitops` namespace.
-  2. [ ] **Kustomize Pipeline:** Structure all manifests into `base/` and `overlays/` with automated drift detection.
-  3. [ ] **Automated Rollouts:** Integrate ArgoCD with GitHub webhooks for instant synchronization upon merging Pull Requests.
+  1. [x] **ArgoCD Base Setup:** Declarative base manifests in `manifests/base/argocd/` with Ingress and TLS routing (`argocd.homelab.local`).
+  2. [x] **App of Apps Pattern:** Root controller `manifests/gitops/root-app.yaml` monitoring `manifests/gitops/apps/`.
+  3. [x] **Automated Reconciliation:** Self-healing (`selfHeal=true`) and automatic pruning (`prune=true`) across all child workloads.
+  4. [x] **Operations & Disaster Recovery Runbook:** Documented in `docs/gitops-workflow.md`.
 
 ---
 
 ### Phase 4: Distributed Storage & High-Availability Data Layer
-* **Status:** Planned
+* **Status:** Next Up / In Planning
 * **Key Deliverables:**
   1. [ ] **Distributed Block Storage (Longhorn CSI):**
      * Deploy Longhorn across all cluster nodes.
