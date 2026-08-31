@@ -36,3 +36,4 @@
     --hostname={{ inventory_hostname }}
     --reset
   when: tailscale_status_raw.rc != 0 or (tailscale_status_raw.stdout | from_json).BackendState != "Running"
+

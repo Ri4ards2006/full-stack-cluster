@@ -81,3 +81,4 @@ kubectl get volumes.longhorn.io -n longhorn-system
 kubectl get pods -n ticket-system -o wide -l cnpg.io/cluster=ticket-db
 # Verifies ticket-db-1 and ticket-db-2 are running on distinct physical nodes.
 ```
+

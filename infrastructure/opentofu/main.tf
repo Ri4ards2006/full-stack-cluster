@@ -45,3 +45,4 @@ resource "hcloud_server" "k3s_witness" {
     "environment" = "homelab-hybrid"
   }
 }
+

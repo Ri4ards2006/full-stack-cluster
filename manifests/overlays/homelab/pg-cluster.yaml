@@ -50,3 +50,4 @@ spec:
       wal_level: "replica"
       max_wal_size: "1GB"
       min_wal_size: "80MB"
+

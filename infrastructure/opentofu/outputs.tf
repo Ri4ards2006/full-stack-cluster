@@ -16,3 +16,4 @@ output "witness_status" {
   description = "Execution status of the witness server"
   value       = hcloud_server.k3s_witness.status
 }
+

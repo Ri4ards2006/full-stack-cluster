@@ -43,3 +43,4 @@ variable "k3s_cluster_token" {
   type        = string
   sensitive   = true
 }
+

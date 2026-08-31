@@ -99,3 +99,4 @@ If all physical hardware is replaced or destroyed:
 4. **GitOps Auto-Assembly (2 min):** Run `kubectl apply -f manifests/gitops/root-app.yaml`.
 
 Within **10 minutes**, the entire distributed architecture—including ingress, zero-trust tunnels, replicated storage, databases, and microservices—is restored to full operation.
+

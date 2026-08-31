@@ -28,3 +28,4 @@ spec:
     - hosts:
         - longhorn.homelab.local
       secretName: longhorn-ui-tls
+

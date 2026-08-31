@@ -1,3 +1,4 @@
 # Handlers for system_init
 - name: Apply sysctl
   ansible.builtin.command: sysctl --system
+

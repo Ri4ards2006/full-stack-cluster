@@ -22,3 +22,4 @@ k3s_cluster_token: "CHANGE_ME_TO_A_SECURE_RANDOM_TOKEN"
 
 # Master API Endpoint (Tailscale Mesh IP of Primary Control Plane Node)
 k3s_master_ip: "100.x.y.z"
+

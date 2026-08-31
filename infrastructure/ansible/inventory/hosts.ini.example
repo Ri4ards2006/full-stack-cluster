@@ -16,3 +16,4 @@ cloud-witness ansible_host=100.64.0.5 ansible_user=root
 k3s_masters
 k3s_workers
 k3s_witness
+

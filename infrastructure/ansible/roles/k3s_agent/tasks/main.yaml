@@ -20,3 +20,4 @@
     name: k3s-agent
     enabled: true
     state: started
+

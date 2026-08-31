@@ -63,3 +63,4 @@ runcmd:
 
   # 5. Install K3s server in etcd quorum join mode
   - curl -sfL https://get.k3s.io | sh -s - server
+

@@ -10,3 +10,4 @@ ssh_public_key     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@homelab"
 tailscale_auth_key = "tskey-auth-kxxxxxxxxxxxxxxxxxxxxxxx"
 k3s_master_ip      = "100.x.y.z"
 k3s_cluster_token  = "CHANGE_ME_TO_A_SECURE_RANDOM_TOKEN"
+
