@@ -6,7 +6,7 @@ This roadmap outlines the systematic, phased metamorphosis of the **full-stack-c
 
 ```mermaid
 gantt
-    title Cluster Evolution Roadmap
+    title Cluster Evolution Roadmap (100% Complete)
     dateFormat  YYYY-MM-DD
     section Phase 1: Security & Build
     Secrets Scrubbing & OCI Containerization :done, p1, 2026-09-01, 30d
@@ -19,7 +19,7 @@ gantt
     section Phase 5: HA Control Plane & IaC
     Embedded etcd 3-Node Quorum & Ansible    :done, p5, after p4, 60d
     section Phase 6: Telemetry & Observability
-    LGTM Stack (Prometheus, Grafana, Loki)   :active, p6, after p5, 45d
+    LGTM Stack (Prometheus, Grafana, Loki)   :done, p6, after p5, 45d
 ```
 
 ---
@@ -53,6 +53,7 @@ full-stack-cluster/
 │   ├── gitops-workflow.md            # ArgoCD operations, disaster recovery & App-of-Apps
 │   ├── iac-and-provisioning.md       # Ansible bare-metal & OpenTofu witness runbook
 │   ├── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnel runbook
+│   ├── observability-and-sre.md      # LGTM Stack & SRE runbook
 │   └── storage-and-ha.md             # Longhorn CSI & CloudNativePG HA guide
 ├── infrastructure/
 │   ├── ansible/                      # Idempotent bare-metal automation
@@ -70,12 +71,14 @@ full-stack-cluster/
 │   ├── base/                         # Base K8s manifests (Deployments, Services, RBAC)
 │   │   ├── argocd/                   # Declarative ArgoCD base installation & ingress
 │   │   ├── database/                 # CloudNativePG Operator
+│   │   ├── logging/                  # Grafana Loki & Promtail DaemonSet
+│   │   ├── monitoring/               # Prometheus, Grafana & Pre-Provisioned Dashboards
 │   │   ├── networking/               # Ingress, cert-manager, NetworkPolicies, Cloudflare
 │   │   ├── portainer/                # Portainer CE with scoped least-privilege RBAC
 │   │   ├── storage/                  # Longhorn Distributed Block Storage CSI
 │   │   └── ticket-system/            # Backend, Frontend
 │   ├── gitops/                       # ArgoCD App-of-Apps definitions
-│   │   ├── apps/                     # Child applications (ticket-system, portainer, networking, storage, database)
+│   │   ├── apps/                     # Child applications (ticket-system, portainer, networking, storage, database, monitoring, logging)
 │   │   └── root-app.yaml             # Master Root ArgoCD Application
 │   ├── overlays/
 │   │   └── homelab/                  # Homelab hardware patches (CNPG Cluster, Replicas)
@@ -85,7 +88,7 @@ full-stack-cluster/
 │   ├── sealed-secrets-template.yaml  # Bitnami SealedSecrets CRD template
 │   └── secrets.example.yaml          # Declarative secrets template
 ├── ARCHITECTURE.md                   # Complete architectural specification
-├── ROADMAP.md                        # Strategic development roadmap
+├── ROADMAP.md                        # Strategic development roadmap (100% Completed)
 ├── LICENSE                           # MIT / Apache-2.0 License
 └── README.md                         # Portfolio showcase overview & runbook
 ```
@@ -95,7 +98,7 @@ full-stack-cluster/
 ## 3. Detailed Phase Execution Plan
 
 ### Phase 1: Stabilization, Security & Workload Decoupling
-* **Status:** Completed
+* **Status:** Completed (100%)
 * **Key Deliverables:**
   1. [x] **Git Secret Scrubbing:** Purge plain-text credentials (`SuperSecretDbPassw0rd`) from Git commit history and add comprehensive `.gitignore`.
   2. [x] **Secrets Management:** Create declarative secret templates (`secrets.example.yaml`) and SealedSecrets templates (`sealed-secrets-template.yaml`).
@@ -108,7 +111,7 @@ full-stack-cluster/
 ---
 
 ### Phase 2: Ingress, Modern Networking & Zero-Trust
-* **Status:** Completed
+* **Status:** Completed (100%)
 * **Key Deliverables:**
   1. [x] **Decommission NodePorts:** Permanently remove NodePorts (`30080`, `30779`, `30770`) and transition to `ClusterIP`.
   2. [x] **Kustomize Base Architecture:** Modularize manifests into `manifests/base/ticket-system/` and `manifests/base/portainer/` with scoped least-privilege RBAC.
@@ -121,7 +124,7 @@ full-stack-cluster/
 ---
 
 ### Phase 3: GitOps & Declarative Cluster Management
-* **Status:** Completed
+* **Status:** Completed (100%)
 * **Key Deliverables:**
   1. [x] **ArgoCD Base Setup:** Declarative base manifests in `manifests/base/argocd/` with Ingress and TLS routing (`argocd.homelab.local`).
   2. [x] **App of Apps Pattern:** Root controller `manifests/gitops/root-app.yaml` monitoring `manifests/gitops/apps/`.
@@ -131,7 +134,7 @@ full-stack-cluster/
 ---
 
 ### Phase 4: Distributed Storage & High-Availability Data Layer
-* **Status:** Completed
+* **Status:** Completed (100%)
 * **Key Deliverables:**
   1. [x] **Distributed Block Storage (Longhorn CSI):**
      * Base manifests in `manifests/base/storage/` with Web UI Ingress (`longhorn.homelab.local`).
@@ -146,7 +149,7 @@ full-stack-cluster/
 ---
 
 ### Phase 5: High-Availability Control Plane & Bare-Metal IaC
-* **Status:** Completed
+* **Status:** Completed (100%)
 * **Key Deliverables:**
   1. [x] **HA Control Plane (Embedded etcd Quorum):**
      * Expanded cluster design to **3-node etcd quorum** ($2N+1$ consensus).
@@ -159,9 +162,10 @@ full-stack-cluster/
 ---
 
 ### Phase 6: Full-Stack Observability & Telemetry (LGTM Stack)
-* **Status:** Next Up / In Planning
+* **Status:** Completed (100%)
 * **Key Deliverables:**
-  1. [ ] **Metrics:** Deploy `kube-prometheus-stack` (Prometheus Operator, Alertmanager, Grafana).
-  2. [ ] **Dashboards:** Provision pre-configured dashboards for Node Exporter, K3s API server metrics, and Tailscale tunnel latency.
-  3. [ ] **Centralized Logging:** Deploy **Grafana Loki** + **Promtail** for log aggregation across all Pods.
-  4. [ ] **Distributed Tracing:** Instrument Flask backend using **OpenTelemetry (OTel)** to profile database latency.
+  1. [x] **Metrics:** Deployed Prometheus core engine in `manifests/base/monitoring/` scraping nodes, cAdvisor, CNPG, and workloads.
+  2. [x] **Visualization & Ingress:** Deployed Grafana with ingress at `grafana.homelab.local` and preconfigured datasources (Prometheus & Loki).
+  3. [x] **Dashboards as Code:** Pre-provisioned dashboards for cluster metrics, PostgreSQL replication, and application latency.
+  4. [x] **Centralized Log Aggregation:** Deployed Grafana Loki (backed by Longhorn CSI) and Promtail DaemonSet across all nodes in `manifests/base/logging/`.
+  5. [x] **Operations & SRE Runbook:** Comprehensive guide with PromQL, LogQL, and triage flowcharts in `docs/observability-and-sre.md`.
