@@ -1,236 +1,218 @@
-# Production-Ready Deployment & Architecture Reference
+# Enterprise-Grade Multi-Node K3s Hybrid Platform over Tailscale WireGuard Mesh
 
-This reference document outlines the deployment architecture, configuration manifests, and administration runbook for hosting containerized applications on a local multi-node K3s Kubernetes cluster spanned across private home network nodes via Tailscale.
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.30-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![K3s](https://img.shields.io/badge/K3s-v1.30.3-FFC61C?logo=rancher&logoColor=black)](https://k3s.io)
+[![Tailscale](https://img.shields.io/badge/Tailscale-WireGuard%20Mesh-24292E?logo=tailscale&logoColor=white)](https://tailscale.com)
+[![ArgoCD](https://img.shields.io/badge/GitOps-ArgoCD-EF7B4D?logo=argo&logoColor=white)](https://argo-cd.readthedocs.io)
+[![Longhorn](https://img.shields.io/badge/Storage-Longhorn%20CSI-2496ED?logo=rancher&logoColor=white)](https://longhorn.io)
+[![CloudNativePG](https://img.shields.io/badge/Database-CloudNativePG-336791?logo=postgresql&logoColor=white)](https://cloudnative-pg.io)
+[![Observability](https://img.shields.io/badge/Observability-Prometheus%20%7C%20Grafana%20%7C%20Loki-F46800?logo=grafana&logoColor=white)](https://grafana.com)
+[![IaC](https://img.shields.io/badge/IaC-Ansible%20%7C%20OpenTofu-EE0000?logo=ansible&logoColor=white)](https://opentofu.org)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 1. System Architecture Overview
+## 1. Executive Platform Architecture
 
-The cluster consists of two physical endpoints running EndeavourOS (Arch Linux), joined together using Tailscale's secure WireGuard mesh topology. Workload distribution is managed dynamically via scheduling rules, ensuring both persistent state alignment and microservice high availability.
+This repository hosts the complete, production-grade Infrastructure as Code (IaC), GitOps continuous delivery pipelines, and microservice definitions for a **distributed, multi-node hybrid Kubernetes ([K3s](https://k3s.io)) cluster**. 
 
-### Network & Node Infrastructure
-*   **Control Plane Node (Laptop):** Lenovo ThinkPad L480 running Arch Linux. Hosts the core Kubernetes Control Plane components, API Server, Scheduler, and Portainer CE.
-*   **Worker Node (Agent):** Desktop Machine (`richard-desktopp`) running Arch Linux. Handles data-intensive operations and stateful storage.
-*   **Tailscale Mesh VPN:** Encapsulates all node-to-node control plane and Pod-to-Pod overlay traffic over the virtual interface `tailscale0`, ensuring security regardless of physical networks.
+The platform connects bare-metal Arch Linux / EndeavourOS endpoints across disparate physical networks into an encrypted **[Tailscale](https://tailscale.com) WireGuard mesh**, augmented by a lightweight cloud witness node for **3-node high-availability etcd quorum**.
 
 ```mermaid
-graph TD
-    subgraph LAN ["Home/Office Physical Network"]
-        direction LR
-        L_PHYS["ThinkPad L480 (Laptop)"]
-        D_PHYS["richard-desktopp (Desktop)"]
+graph TB
+    subgraph InfrastructureLayer ["Hybrid Infrastructure & Hardware Layer"]
+        M_NODE["<b>Master Node #1</b><br/>Lenovo ThinkPad L480 (Arch Linux)<br/>Role: Control Plane (etcd)"]
+        W_NODE["<b>Worker Node #2</b><br/>richard-desktopp (Arch Linux / NVMe)<br/>Role: Control Plane (etcd) + Worker"]
+        C_NODE["<b>Witness Node #3</b><br/>Hetzner Cloud VPS (OpenTofu)<br/>Role: Control Plane (etcd Quorum)"]
     end
 
-    subgraph TailscaleVPN ["Tailscale Secure WireGuard Tunnel"]
-        direction TB
-        L_TS["Laptop Master Node (100.x.y.z)"] <-->|tailscale0 Mesh Tunnel| D_TS["Desktop Worker Node (100.a.b.c)"]
+    subgraph OverlayMesh ["Encrypted Layer 3 Network Overlay (Tailscale)"]
+        M_TS["tailscale0 (100.x.y.z)<br/>MTU 1280"] <===>|WireGuard Mesh| W_TS["tailscale0 (100.a.b.c)<br/>MTU 1280"]
+        M_TS <===>|WireGuard Mesh| C_TS["tailscale0 (100.w.x.y)<br/>MTU 1280"]
+        W_TS <===>|WireGuard Mesh| C_TS
     end
 
-    subgraph K3sCluster ["K3s Lightweight Kubernetes Cluster"]
-        subgraph LaptopCP ["Control Plane Node (Laptop Master)"]
-            K8S_API["K8s API Server<br/>(https://10.43.0.1:6443)"]
-            PORTAINER_POD["Portainer CE Pod<br/>(portainer Namespace)"]
-            PORTAINER_SA["Portainer ServiceAccount<br/>(cluster-admin RBAC)"]
-            
-            PORTAINER_POD -->|RBAC Auth| K8S_API
-            PORTAINER_POD -->|Local Connection| K8S_API
-        end
-
-        subgraph DesktopWorker ["Worker Node (richard-desktopp)"]
-            DB_POD["PostgreSQL DB Pod<br/>(ticket-db)"]
-            BACKEND_PODS["Flask REST API Pods<br/>(ticket-backend)"]
-            FRONTEND_PODS["Nginx + SPA Pods<br/>(ticket-frontend)"]
-            
-            DB_PVC["Local DB PVC<br/>(ticket-db-pvc)"]
-            DB_DIR["Hostpath Storage<br/>(/var/lib/rancher/k3s/storage/...)"]
-            
-            DB_POD -->|Mounts| DB_PVC
-            DB_PVC -->|Maps to| DB_DIR
-        end
+    subgraph StorageDataLayer ["Replicated Storage & HA Database Layer"]
+        LONGHORN["<b>Longhorn Distributed CSI</b><br/>Synchronous Block Replication over Mesh"]
+        CNPG["<b>CloudNativePG PostgreSQL HA Cluster</b><br/>Primary (RW) + Streaming Replica (RO)"]
+        LONGHORN --- CNPG
     end
 
-    L_TS <==>|Encapsulated K3s Flannel VXLAN| D_TS
-    
-    %% Traffic flows
-    CLIENT["Client Web Browser"]
-    CLIENT ==>|HTTP Port 30080| FRONTEND_PODS
-    CLIENT ==>|HTTPS Port 30779| PORTAINER_POD
-    
-    FRONTEND_PODS -->|Internal Proxy /api/*| BACKEND_PODS
-    BACKEND_PODS -->|Internal DNS ticket-db:5432| DB_POD
+    subgraph GitOpsEngine ["Continuous Delivery & GitOps Engine"]
+        ARGOCD["<b>ArgoCD (App of Apps)</b><br/>Self-Healing & Auto-Reconciliation"]
+    end
 
-    %% Scheduling Rules
-    DB_POD -.->|Pinned via NodeAffinity| DesktopWorker
-    FRONTEND_PODS -.->|Spread via PodAntiAffinity| LaptopCP
-    FRONTEND_PODS -.->|Spread via PodAntiAffinity| DesktopWorker
-    BACKEND_PODS -.->|Spread via PodAntiAffinity| LaptopCP
-    BACKEND_PODS -.->|Spread via PodAntiAffinity| DesktopWorker
+    subgraph Workloads ["Microservice Workloads & Administration"]
+        API["ticket-backend (Flask API)<br/>Multi-Stage OCI / Gunicorn WSGI"]
+        SPA["ticket-frontend (Nginx Proxy)<br/>Glassmorphic Incident Hub SPA"]
+        PORTAINER["Portainer CE<br/>Scoped Least-Privilege RBAC"]
+    end
+
+    subgraph ObservabilityLayer ["Full-Stack Observability (LGTM Stack)"]
+        PROM["Prometheus Metrics Engine"]
+        LOKI["Grafana Loki Log Aggregator"]
+        GRAFANA["Grafana Dashboards"]
+        PROMTAIL["Promtail DaemonSet"]
+    end
+
+    InfrastructureLayer --> OverlayMesh
+    OverlayMesh --> StorageDataLayer
+    StorageDataLayer --> Workloads
+    GitOpsEngine ==>|Reconciles| Workloads
+    GitOpsEngine ==>|Reconciles| ObservabilityLayer
+    Workloads -.-> ObservabilityLayer
 ```
 
 ---
 
-## 2. Infrastructure Configuration Manifests
+## 2. Core Engineering Innovations & Highlights
 
-The cluster deployments are split into two primary YAML manifests, providing absolute separation of concerns between administration tools and application workloads.
+### ⚡ Tailscale WireGuard Mesh & Mathematical MTU Optimization
+* **The Challenge:** Tailscale clamps its virtual interface (`tailscale0`) to **1280 bytes** (the IPv6 baseline MTU). Flannel's default VXLAN overlay adds **50 bytes** of encapsulation header. Standard 1450-byte packets cause silent packet drops over WireGuard.
+* **The Solution:** We enforce a tuned MTU of **1230 bytes** ($1280 - 50 = 1230$) in K3s declarative configuration (`/etc/rancher/k3s/config.yaml`), eliminating packet fragmentation and connection timeouts.
 
-### A. Portainer CE Stack ([portainer-k3s.yaml](file:///home/richard/full-stack-cluster/portainer-k3s.yaml))
-Defines the `portainer` administrative namespace, PVC, NodePort services, and the RBAC elements needed to authorize Portainer against the API server.
+### 🛡️ Arch Linux `systemd-resolved` DNS Loopback Bypass
+* **The Challenge:** Arch Linux routes local DNS through `127.0.0.53`. Container network namespaces cannot reach this host-loopback address, causing CoreDNS crash loops and container build failures.
+* **The Solution:** Declarative Kubelet upstream nameserver enforcement via `--resolv-conf=/etc/rancher/k3s/resolv.conf` pointing directly to `1.1.1.1` and `8.8.8.8`.
 
-### B. Ticket System App Stack ([ticket-system-app.yaml](file:///home/richard/full-stack-cluster/ticket-system-app.yaml))
-Defines the `ticket-system` namespace, database persistent layer, Backend REST API (Flask), and a modern Nginx reverse-proxied glassmorphic SPA frontend.
+### 💾 Distributed Block Storage (Longhorn CSI) & HA Database (CloudNativePG)
+* **Zero Node-Pinning:** Replaced single-node `local-path` storage with **Longhorn CSI**, performing real-time synchronous block replication across physical NVMe disks over the WireGuard mesh.
+* **Database Quorum:** PostgreSQL is managed by **CloudNativePG (CNPG)** with streaming WAL replication and sub-second automatic failover.
 
-> [!NOTE]
-> The Flask backend automatically checks the database status on startup, creates the required `tickets` database schema, and populates it with default mock tickets if empty.
+### 🔄 Declarative GitOps Engine (ArgoCD "App of Apps")
+* The entire cluster state is defined as code. ArgoCD monitors `manifests/gitops/root-app.yaml` with **Self-Healing** (`selfHeal=true`) and **Automatic Pruning** (`prune=true`).
 
----
+### 📊 Full-Stack Observability (LGTM Stack)
+* **Prometheus & Grafana:** Pre-provisioned dashboards for node metrics, WireGuard bandwidth, and database transaction rates.
+* **Loki & Promtail:** Centralized distributed log streaming from `/var/log/pods` across all physical nodes.
 
-## 3. Advanced Scheduling & Traffic Design
-
-### Multi-Node Scheduling Rules
-1.  **Database Node Affinity:** The PostgreSQL database is restricted to the Desktop (`richard-desktopp`) using `nodeAffinity`. Since local-path storage is node-bound, pinning the pod to this specific hostname prevents volume scheduling failures and ensures data persistence remains tied to the underlying NVMe storage.
-2.  **App Tier Anti-Affinity:** Both frontend and backend deployments run with `podAntiAffinity` rules. The scheduler is directed to spread replicas across different physical nodes (Laptop and Desktop) to avoid single points of failure.
-
-### Unified In-Cluster Reverse Proxy Routing
-To avoid Cross-Origin Resource Sharing (CORS) complications and keep the database completely secure, the Client's web browser communicates exclusively with the frontend on port `30080`.
-*   **Static Assets:** Served directly by Nginx (e.g., `index.html`, stylesheets).
-*   **API Routes (`/api/*`):** Transparently proxied internally by Nginx to the backend Flask API (`http://ticket-backend:5000`) using the cluster's internal CoreDNS resolution.
-*   **Headless DB Security:** The database is exposed via a ClusterIP service `ticket-db`, rendering the storage port (`5432`) completely invisible outside the internal network.
+### 🚀 Zero-Touch Bare-Metal Automation (Ansible & OpenTofu)
+* **Ansible:** Fully automated OS kernel parameter tuning, Tailscale authentication, and K3s multi-master bootstrapping.
+* **OpenTofu:** Automated provisioning of a Hetzner Cloud VPS witness node, guaranteeing an odd number of voting members ($2N+1 = 3$) for unshakeable `etcd` quorum.
 
 ---
 
-## 4. Portainer API Integration & RBAC Resolution
+## 3. Repository Architecture & Layout
 
-When connecting Portainer CE to the local cluster, administrative tools frequently throw TLS verification errors (`x509: certificate signed by unknown authority`) or connection failures (`broken pipe`) when trying to dial `https://10.43.0.1:6443` or the public endpoint.
-
-### Why this happens:
-1.  **SAN Mismatches:** The API Server's SSL certificate contains specific Subject Alternative Names (SANs) generated during K3s installation. Querying the API server over a raw Tailscale IP or a custom local cluster IP fails TLS validation if those IPs are missing from the SAN list.
-2.  **Insufficient Privileges:** By default, pods run with the `default` ServiceAccount, which lacks any authorization to read cluster metrics, nodes count, or hardware capacity.
-
-### How the Portainer RBAC resolves this:
-*   **ServiceAccount Mounting:** A dedicated `portainer-sa-admin` ServiceAccount is defined and attached to the Portainer pod. The token and the internal Cluster CA certificate are automatically mounted inside the container at `/var/run/secrets/kubernetes.io/serviceaccount/`.
-*   **ClusterRoleBinding:** The ServiceAccount is bound to the cluster's root administrative role `cluster-admin` via a `ClusterRoleBinding`.
-*   **In-Cluster Target:** Inside Portainer, the cluster is registered using the internal DNS name **`https://kubernetes.default.svc`**. Because the pod trusts the cluster CA certificate mounted by Kubernetes, TLS verification succeeds out-of-the-box, completely avoiding TLS and broken pipe errors.
-
-> [!TIP]
-> If manual setup via the Portainer Web UI is preferred using the external IP (`https://10.43.0.1:6443`), toggle the **"Skip TLS verification"** switch to bypass hostname and certificate authority checks.
-
----
-
-## 5. Tailscale & K3s Overlay Network Troubleshooting
-
-On Arch Linux (EndeavourOS) hosting K3s over Tailscale, cross-node communication between Pods (e.g., backend Flask pods on Laptop master node accessing the PostgreSQL pod on Richard's Desktop worker node) can fail with `timeout expired` errors.
-
-This is caused by two factors:
-1.  **Interface Forwarding Rules:** Arch Linux drops forwarding traffic between different virtual interfaces (`tailscale0` and `flannel.1`) by default.
-2.  **MTU Mismatch Drops:** Tailscale's WireGuard interface has a default MTU of `1280`. Flannel's VXLAN defaults to `1450`. When Flannel encapsulates Pod traffic and routes it through Tailscale, the resulting packets exceed `1280` bytes. Without proper fragmentation support, the packets are silently dropped.
-
-### Automated Remediation Script ([fix-cluster-network.sh](file:///home/richard/full-stack-cluster/fix-cluster-network.sh))
-A production-ready network and firewall repair script has been created to instantly resolve these drops. Execute it on **BOTH** the Master Laptop and Worker Desktop nodes:
-
-```bash
-sudo ./fix-cluster-network.sh
-```
-
----
-
-## 6. Resolving Persistent DNS & Name Resolution Failures
-
-When K3s restarts, the CoreDNS `ConfigMap` is systematically overwritten and restored to default cluster configurations, discarding manual DNS forwarders. On Arch Linux systems running local stub resolvers (like `systemd-resolved` pointing to `127.0.0.53`), this disrupts name resolution inside pods, causing Flask backend pods to fail commands like `pip install` with a `Temporary failure in name resolution` error.
-
-### The Solution: Static resolv.conf Force-Loading
-To override K3s dynamically inheriting local loopback DNS configs, we force the Kubelet on both nodes to load a static resolv.conf pointing directly to reliable public resolvers.
-
-### Automated DNS Remediation Script ([fix-k3s-dns-persistent.sh](file:///home/richard/full-stack-cluster/fix-k3s-dns-persistent.sh))
-Execute this script with `sudo` on **BOTH** nodes (Master and Worker):
-```bash
-sudo ./fix-k3s-dns-persistent.sh
-```
-
-**What this script performs:**
-1.  **Static Nameserver Provisioning:** Creates `/etc/rancher/k3s/resolv.conf` containing upstream public resolvers:
-    ```conf
-    nameserver 1.1.1.1
-    nameserver 8.8.8.8
-    ```
-2.  **Systemd Service Modification:** Parses `/etc/systemd/system/k3s.service` (Laptop) and `/etc/systemd/system/k3s-agent.service` (Desktop), appending the `--resolv-conf=/etc/rancher/k3s/resolv.conf` argument to the `ExecStart` block.
-3.  **Daemon Reload & Restart:** Instructs systemd to reload its daemon cache and restarts the respective K3s server or agent service.
-4.  **Pod Eviction:** Evicts all active pods across namespaces (`kubectl delete pods --all -A`), forcing CoreDNS and application containers to recreate immediately with the static nameserver configuration.
-
----
-
-## 7. Step-by-Step Deployment Runbook
-
-Perform the following commands on the laptop (master node) terminal. Because the master config file is owned by root, commands are prefixed with `sudo` and run with the explicit `--kubeconfig` parameter.
-
-### Step 1: Resolve Network Routing & Firewalls
-Run the network configuration script on both the Laptop master and Desktop agent nodes:
-```bash
-sudo ./fix-cluster-network.sh
-```
-
-### Step 2: Set Up Persistent DNS Resolution
-Run the DNS enforcement script on both the Laptop master and Desktop agent nodes:
-```bash
-sudo ./fix-k3s-dns-persistent.sh
-```
-
-### Step 3: Deploy Portainer CE
-Apply the administration stack to set up namespace, RBAC, and services:
-```bash
-sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f portainer-k3s.yaml
-```
-
-### Step 4: Deploy Ticket System Application Stack
-Apply the full application manifest containing the database, API backend, and web frontend:
-```bash
-sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f ticket-system-app.yaml
-```
-
-### Step 5: Verify Scheduling and Distribution
-Ensure that the database is pinned to `richard-desktopp` and that frontend/backend replicas are distributed across nodes:
-```bash
-sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pods -o wide -n ticket-system
-```
-
-### Step 6: Verify Volume Binding & Storage Class
-Confirm the local-path-provisioner has dynamically created the persistent volumes:
-```bash
-sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get pvc -A
-```
-
-### Step 7: Monitor Startup Logs
-The backend pod will download Flask dependencies and initialize the DB. Track progress:
-```bash
-sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml logs -n ticket-system -l app=ticket-backend --tail=100 -f
+```text
+full-stack-cluster/
+├── .github/
+│   └── workflows/
+│       └── ci.yaml                   # Multi-Arch Container Builds (GHCR)
+├── apps/
+│   ├── backend/                      # Production Flask + Gunicorn Microservice
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── src/
+│   └── frontend/                     # Production Nginx SPA
+│       ├── Dockerfile
+│       ├── nginx.conf
+│       └── src/
+├── config/
+│   └── k3s/                          # Declarative K3s Configs (MTU 1230, static DNS)
+├── docs/                             # Engineering Runbooks & Specifications
+│   ├── gitops-workflow.md            # ArgoCD Operations & Disaster Recovery
+│   ├── iac-and-provisioning.md       # Ansible & OpenTofu Provisioning
+│   ├── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnels
+│   ├── observability-and-sre.md      # LGTM Stack & SRE Runbook
+│   └── storage-and-ha.md             # Longhorn Storage & CNPG Replication
+├── infrastructure/
+│   ├── ansible/                      # Idempotent Bare-Metal Automatisierung
+│   │   ├── group_vars/
+│   │   ├── inventory/
+│   │   ├── playbooks/
+│   │   └── roles/
+│   └── opentofu/                     # Cloud-Witness IaC (3-Node etcd Quorum)
+│       ├── cloud-init.yaml
+│       ├── main.tf
+│       ├── outputs.tf
+│       ├── terraform.tfvars.example
+│       └── variables.tf
+├── manifests/
+│   ├── base/                         # Base K8s manifests (Deployments, Services, RBAC)
+│   │   ├── argocd/                   # ArgoCD GitOps Stack
+│   │   ├── database/                 # CloudNativePG Operator
+│   │   ├── logging/                  # Grafana Loki & Promtail DaemonSet
+│   │   ├── monitoring/               # Prometheus, Grafana & Dashboards
+│   │   ├── networking/               # Traefik Ingress, cert-manager, NetworkPolicies
+│   │   ├── portainer/                # Portainer CE with Scoped Least-Privilege RBAC
+│   │   ├── storage/                  # Longhorn Distributed Block Storage CSI
+│   │   └── ticket-system/            # Frontend & Backend Workloads
+│   ├── gitops/
+│   │   ├── apps/                     # Child Applications (7 Modular Apps)
+│   │   └── root-app.yaml             # Master Root ArgoCD Application
+│   ├── overlays/
+│   │   └── homelab/                  # Homelab Hardware Overlay & CNPG Cluster
+│   ├── sealed-secrets-template.yaml  # Bitnami SealedSecrets CRD Template
+│   └── secrets.example.yaml          # Declarative Secret Vorlage
+├── .gitignore
+├── ARCHITECTURE.md                   # Complete Architectural Reference
+├── README.md                         # Portfolio Showcase Overview & Runbook
+└── ROADMAP.md                        # Strategic Evolution Roadmap (100% Complete)
 ```
 
 ---
 
-## 8. Verification and Troubleshooting Cheat Sheet
+## 4. 10-Minute Zero-Touch Disaster Recovery Runbook
 
-### Accessing the Web Interfaces
-| Service | External URL | Description |
-| :--- | :--- | :--- |
-| **Portainer HTTP** | `http://<node-tailscale-ip>:30770` | Unencrypted Portainer Panel |
-| **Portainer HTTPS** | `https://<node-tailscale-ip>:30779` | Secure Portainer Panel |
-| **TicketSystem UI** | `http://<node-tailscale-ip>:30080` | Glassmorphic Incident Dashboard |
+To provision the entire hybrid cluster from scratch after total hardware loss:
 
-### Troubleshooting Commands
+### Step 1: Provision the Cloud Witness Node (2 Minutes)
+```bash
+cd infrastructure/opentofu
+cp terraform.tfvars.example terraform.tfvars
+# Insert your Hetzner Cloud token & Tailscale auth key
+tofu init && tofu apply -auto-approve
+```
 
-*   **Inspect Pod Failures:**
-    If a pod is in `ContainerCreating` or `CrashLoopBackOff`, describe the pod to check events:
-    ```bash
-    sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml describe pod <pod-name> -n ticket-system
-    ```
+### Step 2: Bootstrap Bare-Metal Arch Linux Nodes with Ansible (4 Minutes)
+```bash
+cd ../ansible
+cp inventory/hosts.ini.example inventory/hosts.ini
+cp group_vars/all.yaml.example group_vars/all.yaml
+ansible-playbook -i inventory/hosts.ini playbooks/site.yaml
+```
 
-*   **Verify Active Nameservers in CoreDNS:**
-    Describe the CoreDNS pods to confirm they have loaded the static resolv.conf:
-    ```bash
-    sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml describe pod -n kube-system -l k8s-app=kube-dns
-    ```
+### Step 3: Inject Secrets & Trigger GitOps Self-Assembly (2 Minutes)
+```bash
+# 1. Apply encrypted secrets template
+kubectl apply -f manifests/secrets.yaml
 
-*   **Test Internal Database Connection:**
-    Check database network connectivity directly from a running backend pod:
-    ```bash
-    sudo kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml exec -n ticket-system -it deployment/ticket-backend -- python -c "import psycopg2; print(psycopg2.connect(host='ticket-db', database='ticket_db', user='postgres', password='SuperSecretDbPassw0rd'))"
-    ```
+# 2. Bootstrap ArgoCD engine
+kubectl apply -k manifests/base/argocd/
+
+# 3. Apply the App-of-Apps root controller
+kubectl apply -f manifests/gitops/root-app.yaml
+```
+
+Within **10 minutes**, ArgoCD will reconcile all storage classes, databases, microservices, ingress routes, and monitoring stacks automatically.
+
+---
+
+## 5. Ingress Endpoints & Management Portals
+
+| Service | Local Host / URL | Ingress Controller | Backend Target |
+| :--- | :--- | :--- | :--- |
+| **Incident Ticket Hub (SPA)** | `https://tickets.homelab.local` | Traefik + cert-manager | `ticket-frontend:80` |
+| **ArgoCD GitOps Console** | `https://argocd.homelab.local` | Traefik + cert-manager | `argocd-server:80` |
+| **Grafana Telemetry Hub** | `https://grafana.homelab.local` | Traefik + cert-manager | `grafana:3000` |
+| **Longhorn Storage Console** | `https://longhorn.homelab.local` | Traefik + cert-manager | `longhorn-frontend:80` |
+| **Portainer CE Console** | `https://portainer.homelab.local` | Traefik + cert-manager | `portainer:9000` |
+
+---
+
+## 6. Deep-Dive Engineering Documentation
+
+* 📖 [`ARCHITECTURE.md`](ARCHITECTURE.md): Complete architectural specification, dual-overlay MTU breakdown, and failure recovery matrices.
+* 🗺️ [`ROADMAP.md`](ROADMAP.md): 6-phase strategic transformation roadmap (100% Completed).
+* 🔄 [`docs/gitops-workflow.md`](docs/gitops-workflow.md): ArgoCD App-of-Apps operations, disaster recovery, and webhook automation.
+* 💾 [`docs/storage-and-ha.md`](docs/storage-and-ha.md): Longhorn synchronous block replication and CloudNativePG failover design.
+* 🌐 [`docs/ingress-and-exposure.md`](docs/ingress-and-exposure.md): Traefik Ingress, cert-manager TLS, NetworkPolicies, and Cloudflare Tunnels.
+* 🛠️ [`docs/iac-and-provisioning.md`](docs/iac-and-provisioning.md): Ansible bare-metal provisioning and OpenTofu witness setup.
+* 📈 [`docs/observability-and-sre.md`](docs/observability-and-sre.md): Full LGTM monitoring stack, PromQL & LogQL cheat sheets, and SRE incident triage.
+
+---
+
+## 7. License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
