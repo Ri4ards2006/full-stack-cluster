@@ -123,3 +123,4 @@ In the event of total hardware loss or cluster re-installation:
    kubectl apply -f manifests/gitops/root-app.yaml
    ```
 The entire microservice suite, ingress rules, network policies, and administrative tools will self-assemble within 60 seconds.
+
