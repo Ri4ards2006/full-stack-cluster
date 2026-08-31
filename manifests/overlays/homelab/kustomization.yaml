@@ -5,8 +5,7 @@ resources:
   - ../../base/ticket-system
   - ../../base/portainer
   - ../../base/networking
+  - pg-cluster.yaml
 
 patches:
-  - path: patches/db-node-affinity.yaml
   - path: patches/replicas-and-affinity.yaml
-

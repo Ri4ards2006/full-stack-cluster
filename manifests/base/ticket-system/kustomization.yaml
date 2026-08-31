@@ -5,11 +5,7 @@ namespace: ticket-system
 
 resources:
   - namespace.yaml
-  - db-pvc.yaml
-  - db-deployment.yaml
-  - db-service.yaml
   - backend-deployment.yaml
   - backend-service.yaml
   - frontend-deployment.yaml
   - frontend-service.yaml
-

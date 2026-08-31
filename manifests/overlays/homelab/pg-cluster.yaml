@@ -1,0 +1,52 @@
+# ==============================================================================
+# CloudNativePG High-Availability PostgreSQL Cluster (2-Instance Quorum)
+# Replaces static PostgreSQL deployment and local-path storage with Longhorn CSI.
+# ==============================================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: ticket-db
+  namespace: ticket-system
+  labels:
+    app.kubernetes.io/name: ticket-db
+    app.kubernetes.io/component: database
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:15.7
+  
+  # Spread database instances across physical nodes (Laptop & Desktop)
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+
+  # Distributed Block Storage via Longhorn CSI Driver
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+
+  # Schema bootstrap and credentials configuration
+  bootstrap:
+    initdb:
+      database: ticket_db
+      owner: postgres
+      secret:
+        name: ticket-db-secrets
+
+  # Compute resource boundaries
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Automatic PostgreSQL Parameter Tuning & WAL Configuration
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      wal_level: "replica"
+      max_wal_size: "1GB"
+      min_wal_size: "80MB"

@@ -29,7 +29,7 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
         - name: DB_HOST
-          value: "ticket-db"
+          value: "ticket-db-rw"
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
