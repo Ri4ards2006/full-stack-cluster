@@ -1,0 +1,17 @@
+# Managed by Ansible - K3s Server Configuration
+flannel-iface: {{ tailscale_interface }}
+flannel-backend: vxlan
+flannel-conf: '{"Network":"{{ cluster_cidr }}","Backend":{"Type":"vxlan","Port":8472,"MTU":{{ flannel_mtu }}}}'
+resolv-conf: /etc/rancher/k3s/resolv.conf
+
+token: "{{ k3s_cluster_token }}"
+write-kubeconfig-mode: "0644"
+
+cluster-cidr: "{{ cluster_cidr }}"
+service-cidr: "{{ service_cidr }}"
+cluster-dns: "{{ cluster_dns }}"
+
+tls-san:
+  - "{{ ansible_host }}"
+  - "{{ inventory_hostname }}"
+  - "{{ k3s_master_ip }}"

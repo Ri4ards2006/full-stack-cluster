@@ -1,0 +1,22 @@
+# ==============================================================================
+# Role: k3s_agent - Tasks
+# Joins worker nodes to the K3s control plane.
+# ==============================================================================
+
+- name: Deploy declarative K3s agent configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    mode: '0644'
+
+- name: Download and execute K3s Agent installation script
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | K3S_URL="https://{{ k3s_master_ip }}:6443" K3S_TOKEN="{{ k3s_cluster_token }}" INSTALL_K3S_VERSION="{{ k3s_version }}" sh -
+  args:
+    creates: /usr/local/bin/k3s-agent
+
+- name: Ensure k3s-agent service is enabled and active
+  ansible.builtin.systemd:
+    name: k3s-agent
+    enabled: true
+    state: started

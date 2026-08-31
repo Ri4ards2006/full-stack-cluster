@@ -1,0 +1,28 @@
+# ==============================================================================
+# Master Site Provisioning Playbook for Bare-Metal K3s Cluster
+# Usage: ansible-playbook -i inventory/hosts.ini playbooks/site.yaml --ask-vault-pass
+# ==============================================================================
+
+- name: Phase 1 - OS Initialization & Kernel Hardening
+  hosts: k3s_cluster
+  become: true
+  roles:
+    - system_init
+
+- name: Phase 2 - WireGuard Overlay Mesh Network Setup
+  hosts: k3s_cluster
+  become: true
+  roles:
+    - tailscale
+
+- name: Phase 3 - Bootstrap K3s Control Plane Masters
+  hosts: k3s_masters
+  become: true
+  roles:
+    - k3s_server
+
+- name: Phase 4 - Join Worker Nodes to Cluster
+  hosts: k3s_workers
+  become: true
+  roles:
+    - k3s_agent
