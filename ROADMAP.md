@@ -9,11 +9,11 @@ gantt
     title Cluster Evolution Roadmap
     dateFormat  YYYY-MM-DD
     section Phase 1: Security & Build
-    Secrets Scrubbing & OCI Containerization :active, p1, 2026-09-01, 30d
+    Secrets Scrubbing & OCI Containerization :done, p1, 2026-09-01, 30d
     section Phase 2: Ingress & Network
-    Traefik Ingress, cert-manager & Zero-Trust :p2, after p1, 30d
+    Traefik Ingress, cert-manager & Zero-Trust :done, p2, after p1, 30d
     section Phase 3: GitOps Engine
-    ArgoCD, Kustomize & Multi-Environment   :p3, after p2, 45d
+    ArgoCD, Kustomize & Multi-Environment   :active, p3, after p2, 45d
     section Phase 4: Resilient Storage
     Longhorn CSI & CloudNativePG Operator    :p4, after p3, 45d
     section Phase 5: HA Control Plane & IaC
@@ -30,42 +30,38 @@ gantt
 full-stack-cluster/
 ├── .github/
 │   └── workflows/
-│       ├── build-backend.yaml        # Multi-arch container builds & push to GHCR
-│       ├── build-frontend.yaml       # Frontend static SPA containerization
-│       └── k8s-lint.yaml             # Kubeval / Conftest / Trivy security scanning
+│       └── ci.yaml                   # Multi-arch container builds & push to GHCR
 ├── apps/
 │   ├── backend/
 │   │   ├── Dockerfile                # Multi-stage Python 3.11-slim + Gunicorn
 │   │   ├── requirements.txt          # Explicitly pinned dependencies
 │   │   ├── wsgi.py                   # Production WSGI entry point
 │   │   └── src/
-│   │       ├── app.py                # Flask application & database connection pooling
-│   │       └── routes/               # Modular REST endpoints
+│   │       └── app.py                # Flask application & database connection pooling
 │   └── frontend/
-│       ├── Dockerfile                # Nginx unprivileged Alpine image
+│       ├── Dockerfile                # Nginx Alpine image
 │       ├── nginx.conf                # Reverse proxy config (/api/ routing)
-│       └── src/                      # HTML, CSS, JS frontend assets
-├── infrastructure/
-│   ├── ansible/
-│   │   ├── inventory.ini             # Master (ThinkPad) and Worker (Desktop) hosts
-│   │   ├── playbooks/
-│   │   │   ├── 01-bootstrap-os.yaml  # Arch Linux kernel parameters (sysctl, iptables)
-│   │   │   ├── 02-tailscale.yaml     # Automated Tailscale installation & auth
-│   │   │   └── 03-k3s-ha.yaml        # Automated K3s cluster initialization
-│   │   └── roles/
-│   └── opentofu/                     # Terraform / OpenTofu for Cloud Witness & DNS
-│       ├── main.tf                   # Hetzner Cloud / AWS VPS for 3rd Control Plane Node
-│       └── cloudflare.tf             # Cloudflare DNS records & Zero-Trust Tunnels
+│       └── src/
+│           └── index.html            # SPA incident management dashboard
+├── config/
+│   └── k3s/                          # Declarative K3s node configs (MTU 1230, static DNS)
+│       ├── README.md
+│       ├── agent-config.yaml.example
+│       ├── config.yaml.example
+│       └── resolv.conf
+├── docs/
+│   └── ingress-and-exposure.md       # Ingress, TLS & Cloudflare Tunnel runbook
 ├── manifests/
-│   ├── base/                         # Base K8s manifests (Deployments, Services)
-│   │   ├── backend/
-│   │   ├── frontend/
-│   │   └── kustomization.yaml
+│   ├── base/                         # Base K8s manifests (Deployments, Services, RBAC)
+│   │   ├── networking/               # Ingress, cert-manager, NetworkPolicies, Cloudflare
+│   │   ├── portainer/                # Portainer CE with scoped least-privilege RBAC
+│   │   └── ticket-system/            # Backend, Frontend, PostgreSQL DB
 │   ├── overlays/
-│   │   ├── homelab/                  # Homelab production overlay (Replicas, Hostnames)
-│   │   │   ├── kustomization.yaml
-│   │   │   └── patches/
-│   └── sealed-secrets/               # Encrypted SealedSecrets (safe for Git commits)
+│   │   └── homelab/                  # Homelab hardware patches (NodeAffinity, Replicas)
+│   │       ├── kustomization.yaml
+│   │       └── patches/
+│   ├── sealed-secrets-template.yaml  # Bitnami SealedSecrets CRD template
+│   └── secrets.example.yaml          # Declarative secrets template
 ├── ARCHITECTURE.md                   # Complete architectural specification
 ├── ROADMAP.md                        # Strategic development roadmap
 ├── LICENSE                           # MIT / Apache-2.0 License
@@ -77,50 +73,48 @@ full-stack-cluster/
 ## 3. Detailed Phase Execution Plan
 
 ### Phase 1: Stabilization, Security & Workload Decoupling
-* **Status:** In Progress
+* **Status:** Completed
 * **Key Deliverables:**
-  1. **Git Secret Scrubbing:** Purge plain-text credentials (`SuperSecretDbPassw0rd`) from Git commit history using `git-filter-repo`.
-  2. **Secrets Management:** Deploy [Bitnami Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) or [External Secrets Operator (ESO)](https://external-secrets.io/) to encrypt secrets at rest in Git.
-  3. **Decouple Applications into OCI Images:**
-     * Eliminate runtime `pip install` commands in Kubernetes YAML.
-     * Build production images using Gunicorn + Flask and push to GitHub Container Registry (`ghcr.io`).
-  4. **Declarative K3s Config:** Replace systemd bash patches with `/etc/rancher/k3s/config.yaml`:
-     ```yaml
-     resolv-conf: /etc/rancher/k3s/resolv.conf
-     flannel-backend: vxlan
-     flannel-conf: '{"Network":"10.42.0.0/16","Backend":{"Type":"vxlan","Port":8472,"MTU":1230}}'
-     ```
+  1. [x] **Git Secret Scrubbing:** Purge plain-text credentials (`SuperSecretDbPassw0rd`) from Git commit history and add comprehensive `.gitignore`.
+  2. [x] **Secrets Management:** Create declarative secret templates (`secrets.example.yaml`) and SealedSecrets templates (`sealed-secrets-template.yaml`).
+  3. [x] **Decouple Applications into OCI Images:**
+     * Extract Flask REST API into `apps/backend` with multi-stage `Dockerfile` and Gunicorn WSGI server.
+     * Extract Nginx SPA into `apps/frontend` with hardened `nginx.conf` and `Dockerfile`.
+     * Configure GitHub Actions CI workflow (`.github/workflows/ci.yaml`) for multi-arch builds (`linux/amd64`, `linux/arm64`) to GHCR.
+  4. [x] **Declarative K3s Config:** Replace systemd bash patches with declarative `/etc/rancher/k3s/config.yaml` (`config/k3s/`).
 
 ---
 
 ### Phase 2: Ingress, Modern Networking & Zero-Trust
-* **Status:** Planned
+* **Status:** Completed
 * **Key Deliverables:**
-  1. **Decommission NodePorts:** Remove unencrypted NodePorts (`30080`, `30779`, `30770`).
-  2. **Ingress Controller Deployment:** Enable K3s built-in **Traefik** or deploy **NGINX Ingress Controller / Envoy Gateway**.
-  3. **Automated TLS:** Deploy `cert-manager` with Let's Encrypt ACME ClusterIssuer (DNS-01 verification via Cloudflare API).
-  4. **Zero-Trust Ingress (Cloudflare Tunnels):** Run `cloudflared` daemon in K8s to route external web traffic without opening router firewall ports.
-  5. **Network Policies:** Implement strict default-deny NetworkPolicies per namespace.
+  1. [x] **Decommission NodePorts:** Permanently remove NodePorts (`30080`, `30779`, `30770`) and transition to `ClusterIP`.
+  2. [x] **Kustomize Base Architecture:** Modularize manifests into `manifests/base/ticket-system/` and `manifests/base/portainer/` with scoped least-privilege RBAC.
+  3. [x] **Ingress Controller Deployment:** Provide unified Ingress resources for `tickets.homelab.local` and `portainer.homelab.local` targeting Traefik.
+  4. [x] **Automated TLS:** Create `cert-manager` ClusterIssuer templates for local CA and Let's Encrypt ACME DNS-01 challenges.
+  5. [x] **Zero-Trust Ingress (Cloudflare Tunnels):** Add `cloudflared` daemon manifests and configuration guide.
+  6. [x] **Zero-Trust NetworkPolicies:** Implement strict database isolation (`allow-backend-to-db`) and default-deny policies.
+  7. [x] **Homelab Overlay:** Create `manifests/overlays/homelab/` with hardware-specific NodeAffinity and replica distribution patches.
 
 ---
 
 ### Phase 3: GitOps & Declarative Cluster Management
-* **Status:** Planned
+* **Status:** Next Up / In Planning
 * **Key Deliverables:**
-  1. **GitOps Engine:** Deploy **ArgoCD** or **Flux v2** inside the `gitops` namespace.
-  2. **Kustomize Pipeline:** Structure all manifests into `base/` and `overlays/` with automated drift detection.
-  3. **Automated Rollouts:** Integrate ArgoCD with GitHub webhooks for instant synchronization upon merging Pull Requests.
+  1. [ ] **GitOps Engine:** Deploy **ArgoCD** or **Flux v2** inside the `gitops` namespace.
+  2. [ ] **Kustomize Pipeline:** Structure all manifests into `base/` and `overlays/` with automated drift detection.
+  3. [ ] **Automated Rollouts:** Integrate ArgoCD with GitHub webhooks for instant synchronization upon merging Pull Requests.
 
 ---
 
 ### Phase 4: Distributed Storage & High-Availability Data Layer
 * **Status:** Planned
 * **Key Deliverables:**
-  1. **Distributed Block Storage (Longhorn CSI):**
+  1. [ ] **Distributed Block Storage (Longhorn CSI):**
      * Deploy Longhorn across all cluster nodes.
      * Configure 2-way or 3-way synchronous block replication across physical NVMe disks.
      * Remove hardcoded `nodeAffinity` on `ticket-db`, enabling cross-node volume failover.
-  2. **CloudNativePG (CNPG) Operator:**
+  2. [ ] **CloudNativePG (CNPG) Operator:**
      * Replace standalone PostgreSQL deployment with CNPG operator.
      * Configure automated WAL streaming and scheduled daily backups to S3 / MinIO object storage.
 
@@ -129,10 +123,10 @@ full-stack-cluster/
 ### Phase 5: High-Availability Control Plane & Bare-Metal IaC
 * **Status:** Planned
 * **Key Deliverables:**
-  1. **HA Control Plane (Embedded etcd Quorum):**
+  1. [ ] **HA Control Plane (Embedded etcd Quorum):**
      * Expand cluster from single master to **3-node etcd quorum** ($2N+1$ consensus).
      * Integrate an external lightweight Cloud VPS (e.g. Hetzner Cloud for ~3€/month) as the 3rd Control Plane Node / etcd-Witness in the Tailscale mesh.
-  2. **Infrastructure-as-Code (Ansible & OpenTofu):**
+  2. [ ] **Infrastructure-as-Code (Ansible & OpenTofu):**
      * Write Ansible playbooks for zero-touch bare-metal provisioning of Arch Linux / EndeavourOS nodes.
      * Manage Cloudflare DNS, Tunnels, and Cloud VPS resources via OpenTofu / Terraform.
 
@@ -141,7 +135,7 @@ full-stack-cluster/
 ### Phase 6: Full-Stack Observability & Telemetry (LGTM Stack)
 * **Status:** Planned
 * **Key Deliverables:**
-  1. **Metrics:** Deploy `kube-prometheus-stack` (Prometheus Operator, Alertmanager, Grafana).
-  2. **Dashboards:** Provision pre-configured dashboards for Node Exporter, K3s API server metrics, and Tailscale tunnel latency.
-  3. **Centralized Logging:** Deploy **Grafana Loki** + **Promtail** for log aggregation across all Pods.
-  4. **Distributed Tracing:** Instrument Flask backend using **OpenTelemetry (OTel)** to profile database latency.
+  1. [ ] **Metrics:** Deploy `kube-prometheus-stack` (Prometheus Operator, Alertmanager, Grafana).
+  2. [ ] **Dashboards:** Provision pre-configured dashboards for Node Exporter, K3s API server metrics, and Tailscale tunnel latency.
+  3. [ ] **Centralized Logging:** Deploy **Grafana Loki** + **Promtail** for log aggregation across all Pods.
+  4. [ ] **Distributed Tracing:** Instrument Flask backend using **OpenTelemetry (OTel)** to profile database latency.
