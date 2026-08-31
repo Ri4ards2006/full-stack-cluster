@@ -99,3 +99,4 @@ Launch an ephemeral debug container in another namespace and attempt to reach th
 kubectl run network-test --rm -it --image=busybox --restart=Never -n default -- nc -zv -w 3 ticket-db.ticket-system.svc.cluster.local 5432
 # Expected output: Connection timed out (Blocked by NetworkPolicy allow-backend-to-db)
 ```
+

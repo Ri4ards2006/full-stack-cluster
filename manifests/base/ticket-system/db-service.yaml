@@ -16,3 +16,4 @@ spec:
       name: postgres
   selector:
     app: ticket-db
+

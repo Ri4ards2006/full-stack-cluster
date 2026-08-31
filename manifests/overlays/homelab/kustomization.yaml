@@ -9,3 +9,4 @@ resources:
 patches:
   - path: patches/db-node-affinity.yaml
   - path: patches/replicas-and-affinity.yaml
+

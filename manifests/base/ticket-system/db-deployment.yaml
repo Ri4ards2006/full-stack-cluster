@@ -90,3 +90,4 @@ spec:
       - name: db-storage
         persistentVolumeClaim:
           claimName: ticket-db-pvc
+

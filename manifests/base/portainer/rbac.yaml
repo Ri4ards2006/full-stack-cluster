@@ -70,3 +70,4 @@ roleRef:
   kind: Role
   name: portainer-workload-manager
   apiGroup: rbac.authorization.k8s.io
+

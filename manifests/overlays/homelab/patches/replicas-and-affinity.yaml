@@ -45,3 +45,4 @@ spec:
                       values:
                         - ticket-frontend
                 topologyKey: kubernetes.io/hostname
+

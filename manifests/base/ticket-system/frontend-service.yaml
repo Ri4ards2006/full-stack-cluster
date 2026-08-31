@@ -16,3 +16,4 @@ spec:
       name: http
   selector:
     app: ticket-frontend
+

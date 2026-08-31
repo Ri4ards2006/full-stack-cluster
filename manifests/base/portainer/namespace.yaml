@@ -5,3 +5,4 @@ metadata:
   labels:
     app.kubernetes.io/name: portainer
     app.kubernetes.io/part-of: full-stack-cluster
+

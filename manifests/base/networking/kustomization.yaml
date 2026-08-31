@@ -7,3 +7,4 @@ resources:
   - network-policy-db.yaml
   - network-policy-default-deny.yaml
   - cloudflare-tunnel.yaml
+
