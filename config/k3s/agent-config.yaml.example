@@ -1,0 +1,15 @@
+# ==============================================================================
+# Declarative K3s Agent (Worker Node) Configuration
+# Location on Worker Node: /etc/rancher/k3s/config.yaml
+# ==============================================================================
+
+# Master endpoint connection via Tailscale IP
+server: "https://100.x.y.z:6443"        # Replace with Master Tailscale IP:6443
+token: "K10xxxxxxxxxxxxxxxxxxxxxx"      # Extracted from Master: /var/lib/rancher/k3s/server/node-token
+
+# Explicitly bind worker addresses to the Tailscale interface
+flannel-iface: tailscale0
+node-ip: 100.a.b.c                     # Replace with Desktop Worker Tailscale IP
+
+# Bypass systemd-resolved 127.0.0.53 stub loop
+resolv-conf: /etc/rancher/k3s/resolv.conf
